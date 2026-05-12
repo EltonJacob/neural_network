@@ -1,0 +1,194 @@
+"""
+Day 3 — Neural Network from Scratch
+Phase 1 — Foundations · 60-minute timed session
+
+RULES:
+  - NumPy only for the model. sklearn.datasets is allowed for data generation only.
+  - No PyTorch.
+  - Read all 4 stages in README.md first.
+  - Design architecture in comments BEFORE writing code.
+  - print() is your only debugger.
+
+ARCHITECTURE NOTES (fill in during your 5-minute design phase):
+  -
+  -
+  -
+
+KEY EQUATIONS (memorize):
+  Forward:
+    Z[l]      = W[l] @ A[l-1] + b[l]
+    A[l]      = activation(Z[l])
+  Backward:
+    dZ[l]     = dA[l] * activation_backward(Z[l])
+    dW[l]     = (1/m) * dZ[l] @ A[l-1].T
+    db[l]     = (1/m) * np.sum(dZ[l], axis=1, keepdims=True)
+    dA[l-1]   = W[l].T @ dZ[l]
+  Init (He, for ReLU):
+    W[l]      = np.random.randn(n[l], n[l-1]) * sqrt(2 / n[l-1])
+    b[l]      = np.zeros((n[l], 1))
+  Loss (binary):
+    BCE       = -mean(y*log(p) + (1-y)*log(1-p))   # clip p to [1e-7, 1-1e-7]
+  Gradient check:
+    max rel error = |grad_numerical - grad_analytical| / (|grad_numerical| + |grad_analytical|)
+"""
+
+import numpy as np
+from typing import List, Tuple, Dict
+from sklearn.datasets import make_moons
+from sklearn.datasets import load_digits
+
+
+# -----------------------------------------------------------------------------
+# DATA GENERATION (scaffolding — sklearn allowed for data only)
+# -----------------------------------------------------------------------------
+
+def generate_xor() -> Tuple[np.ndarray, np.ndarray]:
+    """The classic 4-point XOR — your network MUST learn this."""
+    X = np.array([[0,0,1,1],[0,1,0,1]]).astype(float)
+    y = np.array([0,1,1,0]).reshape(1,-1).astype(float)
+    return (X,y)
+
+
+def generate_moons(n_samples: int = 1000, noise: float = 0.1,
+                   random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
+    """Nonlinear 2D blob — sklearn.datasets.make_moons."""
+    X,y = make_moons(n_samples=n_samples,noise=noise,random_state=random_state)
+    X = X.T
+    y = y.reshape(1,-1).astype(float)
+    return (X,y)
+
+
+def generate_digits() -> Tuple[np.ndarray, np.ndarray]:
+    """sklearn digits dataset — for Stage 4 multi-class benchmark."""
+    data = load_digits()
+    X = data.data
+    y = data.target
+    X = X.T
+    y = y.reshape(1,-1)
+    return (X,y)
+
+
+def train_val_split(X: np.ndarray, y: np.ndarray, val_frac: float = 0.2,
+                    seed: int = 0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """80/20 split — done by hand, no train_test_split."""
+    np.random.seed(seed)
+    index = np.random.permutation(X.shape[1])
+    train_size = int((1-val_frac) * X.shape[1])
+    X = X[:,index]
+    y = y[:,index]
+    X_train = X[:,:train_size]
+    y_train = y[:,:train_size]
+    X_val = X[:,train_size:]
+    y_val= y[:,train_size:]
+    return (X_train,y_train,X_val,y_val)
+
+
+# -----------------------------------------------------------------------------
+# STAGE 1 — FORWARD PASS
+# -----------------------------------------------------------------------------
+
+class NeuralNetworkScratch:
+    """Fully-connected feedforward network — NumPy only."""
+
+    def __init__(self, layer_dims: List[int], activations: List[str], seed: int = 0):
+        # TODO: validate len(activations) == len(layer_dims) - 1
+        # TODO: He-init self.params = {"W1": ..., "b1": ..., "W2": ..., ...}
+        # TODO: store self.layer_dims, self.activations, self.caches = [], self.loss_history = []
+        raise NotImplementedError
+
+    # --- activations ---------------------------------------------------------
+
+    @staticmethod
+    def relu(Z: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+    @staticmethod
+    def sigmoid(Z: np.ndarray) -> np.ndarray:
+        """Numerically stable sigmoid — clip Z to [-500, 500]."""
+        raise NotImplementedError
+
+    # --- forward -------------------------------------------------------------
+
+    def forward(self, X: np.ndarray) -> np.ndarray:
+        """Run a forward pass. Cache (A_prev, Z, W, b) per layer for backprop."""
+        raise NotImplementedError
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2 — BACKPROPAGATION
+# -----------------------------------------------------------------------------
+
+    @staticmethod
+    def relu_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
+        """dZ = dA * (Z > 0)."""
+        raise NotImplementedError
+
+    @staticmethod
+    def sigmoid_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
+        """dZ = dA * sigmoid(Z) * (1 - sigmoid(Z))."""
+        raise NotImplementedError
+
+    def backward(self, y_true: np.ndarray) -> Dict[str, np.ndarray]:
+        """Walk caches in reverse. Return {dW1, db1, dW2, db2, ...}."""
+        raise NotImplementedError
+
+    def update_params(self, grads: Dict[str, np.ndarray], lr: float) -> None:
+        """Apply W -= lr * dW, b -= lr * db for every layer."""
+        raise NotImplementedError
+
+
+# -----------------------------------------------------------------------------
+# STAGE 3 — ACTIVATIONS + OPTIMIZATION
+# -----------------------------------------------------------------------------
+
+    @staticmethod
+    def tanh(Z: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+    @staticmethod
+    def tanh_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
+        """dZ = dA * (1 - tanh(Z)^2)."""
+        raise NotImplementedError
+
+    def fit(self, X: np.ndarray, y: np.ndarray, lr: float = 0.1,
+            epochs: int = 1000, batch_size: int = 32) -> List[float]:
+        """Mini-batch GD. Shuffle each epoch. Returns loss-per-epoch."""
+        raise NotImplementedError
+
+    def gradient_check(self, X: np.ndarray, y: np.ndarray,
+                       epsilon: float = 1e-5) -> float:
+        """Compare analytical vs numerical grads. Return max relative error."""
+        raise NotImplementedError
+
+
+# -----------------------------------------------------------------------------
+# STAGE 4 — REGULARIZATION + DIAGNOSTICS (bonus)
+# -----------------------------------------------------------------------------
+
+    def fit_with_dropout(self, X: np.ndarray, y: np.ndarray,
+                         keep_prob: float = 0.8, lr: float = 0.1,
+                         epochs: int = 1000) -> List[float]:
+        """Inverted dropout during training only."""
+        raise NotImplementedError
+
+    def fit_with_l2(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.01,
+                    lr: float = 0.1, epochs: int = 1000) -> List[float]:
+        """L2 regularization on every W (bias unregularized)."""
+        raise NotImplementedError
+
+    def plot_decision_boundary(self, X: np.ndarray, y: np.ndarray,
+                                resolution: float = 0.01) -> None:
+        """ASCII decision boundary — print() to terminal is fine."""
+        raise NotImplementedError
+
+    def layer_stats(self, layer_idx: int) -> Dict[str, float]:
+        """Return {mean_W, std_W, mean_grad, std_grad} for one layer."""
+        raise NotImplementedError
+
+
+# -----------------------------------------------------------------------------
+# MAIN — quick smoke run when executing this file directly
+# -----------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    generate_digits()
