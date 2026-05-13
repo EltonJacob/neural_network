@@ -94,24 +94,49 @@ class NeuralNetworkScratch:
         # TODO: validate len(activations) == len(layer_dims) - 1
         # TODO: He-init self.params = {"W1": ..., "b1": ..., "W2": ..., ...}
         # TODO: store self.layer_dims, self.activations, self.caches = [], self.loss_history = []
-        raise NotImplementedError
+        if len(activations)!=len(layer_dims)-1:
+            raise ValueError("activation and layer_dim mismatch")
+        np.random.seed(seed)
+        self.layer_dims = layer_dims
+        self.activations = activations
+        self.caches = []
+        self.loss_history = []
+        self.params = {}
+        for i in range(1,len(layer_dims)):
+            key = f"W{i}"
+            self.params[f"W{i}"]=np.random.randn(layer_dims[i],layer_dims[i-1]) * np.sqrt(2/layer_dims[i-1])
+            self.params[f"b{i}"]=np.zeros((layer_dims[i],1))
+
+        
+
 
     # --- activations ---------------------------------------------------------
 
     @staticmethod
     def relu(Z: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
+        return np.maximum(0,Z)
 
     @staticmethod
     def sigmoid(Z: np.ndarray) -> np.ndarray:
         """Numerically stable sigmoid — clip Z to [-500, 500]."""
-        raise NotImplementedError
+        Z= np.clip(Z,-500,500)
+        return 1/(1+np.exp(-Z))
 
     # --- forward -------------------------------------------------------------
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """Run a forward pass. Cache (A_prev, Z, W, b) per layer for backprop."""
-        raise NotImplementedError
+        self.caches.clear()
+        A=X
+        for i in range(1,len(self.layer_dims)):
+            A_prev = A
+            Z = self.params[f"W{i}"]@A + self.params[f"b{i}"]
+            if self.activations[i-1]=='relu':
+                A = self.relu(Z)
+            elif self.activations[i-1]=='sigmoid':
+                A = self.sigmoid(Z)
+            self.caches.append((A_prev,Z,self.params[f"W{i}"],self.params[f"b{i}"]))
+        return A
 
 
 # -----------------------------------------------------------------------------
