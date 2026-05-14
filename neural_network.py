@@ -102,6 +102,7 @@ class NeuralNetworkScratch:
         self.caches = []
         self.loss_history = []
         self.params = {}
+        self.AL = None
         for i in range(1,len(layer_dims)):
             key = f"W{i}"
             self.params[f"W{i}"]=np.random.randn(layer_dims[i],layer_dims[i-1]) * np.sqrt(2/layer_dims[i-1])
@@ -136,6 +137,7 @@ class NeuralNetworkScratch:
             elif self.activations[i-1]=='sigmoid':
                 A = self.sigmoid(Z)
             self.caches.append((A_prev,Z,self.params[f"W{i}"],self.params[f"b{i}"]))
+        self.AL = A
         return A
 
 
@@ -146,20 +148,38 @@ class NeuralNetworkScratch:
     @staticmethod
     def relu_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
         """dZ = dA * (Z > 0)."""
-        raise NotImplementedError
+        dZ = dA * (cache_Z > 0)
+        return dZ
 
     @staticmethod
     def sigmoid_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
         """dZ = dA * sigmoid(Z) * (1 - sigmoid(Z))."""
-        raise NotImplementedError
+        dZ = dA * NeuralNetworkScratch.sigmoid(cache_Z) * (1-NeuralNetworkScratch.sigmoid(cache_Z))
+        return dZ
 
     def backward(self, y_true: np.ndarray) -> Dict[str, np.ndarray]:
         """Walk caches in reverse. Return {dW1, db1, dW2, db2, ...}."""
-        raise NotImplementedError
+        result = {}
+        m = y_true.shape[1]
+        dA = -(y_true/self.AL) + (1-y_true)/(1-self.AL)
+        for i in range(len(self.caches)-1,-1,-1):
+            if self.activations[i] == "relu":
+                dZ = self.relu_backward(dA,self.caches[i][1])
+            elif self.activations[i] == "sigmoid":
+                dZ = self.sigmoid_backward(dA,self.caches[i][1])
+            dW = (1/m) * dZ @ self.caches[i][0].T
+            db = (1/m) * np.sum(dZ,axis=1,keepdims=True)
+            dA = self.caches[i][2].T @ dZ
+            result[f"dW{i+1}"]=dW
+            result[f"db{i+1}"]=db
+        return result
+
 
     def update_params(self, grads: Dict[str, np.ndarray], lr: float) -> None:
         """Apply W -= lr * dW, b -= lr * db for every layer."""
-        raise NotImplementedError
+        for i in range(1,len(self.layer_dims)):
+            self.params[f'W{i}'] -= lr * grads[f"dW{i}"]
+            self.params[f'b{i}'] -= lr * grads[f"db{i}"]
 
 
 # -----------------------------------------------------------------------------
