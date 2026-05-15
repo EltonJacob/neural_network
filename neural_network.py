@@ -188,22 +188,56 @@ class NeuralNetworkScratch:
 
     @staticmethod
     def tanh(Z: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
+        return np.tanh(Z)
 
     @staticmethod
     def tanh_backward(dA: np.ndarray, cache_Z: np.ndarray) -> np.ndarray:
         """dZ = dA * (1 - tanh(Z)^2)."""
-        raise NotImplementedError
+        return dA * (1-NeuralNetworkScratch.tanh(cache_Z)**2)
 
     def fit(self, X: np.ndarray, y: np.ndarray, lr: float = 0.1,
             epochs: int = 1000, batch_size: int = 32) -> List[float]:
         """Mini-batch GD. Shuffle each epoch. Returns loss-per-epoch."""
-        raise NotImplementedError
+        for epoch in range(epochs):
+            index = np.random.permutation(X.shape[1])
+            X = X[:,index]
+            y = y[:,index]
+            for batch in range(0,X.shape[1],batch_size):
+                start = batch
+                end = batch + batch_size
+                X_batched = X[:,start:end]
+                y_batched = y[:,start:end]
+                output = self.forward(X_batched)
+                grad = self.backward(y_batched)
+                self.update_params(grad,lr)
+            output = self.forward(X)
+            loss = -np.mean(y * np.log(output + 1e-7) + (1-y) * np.log(1 - output + 1e-7))
+            self.loss_history.append(loss)
+        return self.loss_history
+            
 
     def gradient_check(self, X: np.ndarray, y: np.ndarray,
                        epsilon: float = 1e-5) -> float:
         """Compare analytical vs numerical grads. Return max relative error."""
-        raise NotImplementedError
+        output = self.forward(X)
+        grads = self.backward(y)
+        errors = []
+        for key in self.params:
+            for idx, val in np.ndenumerate(self.params[key]):
+                self.params[key][idx] += epsilon
+                output = self.forward(X)
+                loss_plus = -np.mean(y * np.log(output + 1e-7) + (1-y) * np.log(1 - output + 1e-7))
+                self.params[key][idx] -= 2*epsilon
+                output = self.forward(X)
+                loss_minus = -np.mean(y * np.log(output + 1e-7) + (1-y) * np.log(1 - output + 1e-7))
+                self.params[key][idx] += epsilon
+                numerical_grad = (loss_plus - loss_minus)/(2*epsilon)
+                grad_key = "d"+key
+                analytical_grad = grads[grad_key][idx]
+                error = np.abs(numerical_grad-analytical_grad)/(np.abs(numerical_grad)+np.abs(analytical_grad)+1e-8)
+                errors.append(error)
+        return np.max(errors)
+
 
 
 # -----------------------------------------------------------------------------
@@ -236,4 +270,11 @@ class NeuralNetworkScratch:
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    generate_digits()
+    X, y = generate_xor()
+    nn = NeuralNetworkScratch([2, 4, 1], ['relu', 'sigmoid'])
+    losses = nn.fit(X, y, lr=0.1, epochs=1000, batch_size=4)
+    print("First loss:", losses[0])
+    print("Last loss:", losses[-1])
+    print("Final output:", nn.forward(X))
+    print("Expected:   ", y)
+    print("Gradient check error:", nn.gradient_check(X, y))
