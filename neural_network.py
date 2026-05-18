@@ -103,6 +103,7 @@ class NeuralNetworkScratch:
         self.loss_history = []
         self.params = {}
         self.AL = None
+        self.grads = None
         for i in range(1,len(layer_dims)):
             key = f"W{i}"
             self.params[f"W{i}"]=np.random.randn(layer_dims[i],layer_dims[i-1]) * np.sqrt(2/layer_dims[i-1])
@@ -139,6 +140,24 @@ class NeuralNetworkScratch:
             self.caches.append((A_prev,Z,self.params[f"W{i}"],self.params[f"b{i}"]))
         self.AL = A
         return A
+    
+    def _forward_with_dropout(self, X:np.ndarray, keep_prob: float)->np.ndarray:
+        self.caches.clear()
+        A=X
+        for i in range(1,len(self.layer_dims)):
+            A_prev = A
+            Z = self.params[f"W{i}"]@A + self.params[f"b{i}"]
+            if self.activations[i-1] == 'relu':
+                A = self.relu(Z)
+            elif self.activations[i-1]=='sigmoid':
+                A = self.sigmoid(Z)
+            if i < len(self.layer_dims)-1:
+                mask = (np.random.rand(*A.shape)<keep_prob)
+                A = A * mask/keep_prob
+            self.caches.append((A_prev,Z,self.params[f"W{i}"],self.params[f"b{i}"]))
+        self.AL = A
+        return A
+
 
 
 # -----------------------------------------------------------------------------
@@ -172,6 +191,7 @@ class NeuralNetworkScratch:
             dA = self.caches[i][2].T @ dZ
             result[f"dW{i+1}"]=dW
             result[f"db{i+1}"]=db
+        self.grads = result
         return result
 
 
@@ -248,21 +268,70 @@ class NeuralNetworkScratch:
                          keep_prob: float = 0.8, lr: float = 0.1,
                          epochs: int = 1000) -> List[float]:
         """Inverted dropout during training only."""
-        raise NotImplementedError
+        for epoch in range(epochs):
+            index = np.random.permutation(X.shape[1])
+            X = X[:,index]
+            y = y[:,index]
+            output = self._forward_with_dropout(X,keep_prob)
+            grad = self.backward(y)
+            self.update_params(grad,lr)
+            output = self.forward(X)
+            loss = -np.mean(y * np.log(output + 1e-7) + (1-y) * np.log(1 - output + 1e-7))
+            self.loss_history.append(loss)
+        return self.loss_history
+        
 
     def fit_with_l2(self, X: np.ndarray, y: np.ndarray, alpha: float = 0.01,
                     lr: float = 0.1, epochs: int = 1000) -> List[float]:
         """L2 regularization on every W (bias unregularized)."""
-        raise NotImplementedError
+        m = X.shape[1]
+        for _ in range(epochs):
+            index = np.random.permutation(X.shape[1])
+            X = X[:,index]
+            y = y[:,index]
+            output = self.forward(X)
+            grads = self.backward(y)
+            for i in range(1, len(self.layer_dims)):
+                grads[f"dW{i}"] += (alpha/m) * self.params[f"W{i}"]
+            self.update_params(grads,lr)
+            output = self.forward(X)
+            loss = -np.mean(y * np.log(output + 1e-7) + (1-y) * np.log(1 - output + 1e-7))
+            self.loss_history.append(loss)
+        return self.loss_history
+
 
     def plot_decision_boundary(self, X: np.ndarray, y: np.ndarray,
                                 resolution: float = 0.01) -> None:
         """ASCII decision boundary — print() to terminal is fine."""
-        raise NotImplementedError
+        x1_min,x1_max = X[0,:].min() - 0.5, X[0,:].max()+0.5
+        x2_min, x2_max = X[1,:].min() - 0.5, X[1,:].max()+0.5
+
+        x1_vals = np.arange(x1_min,x1_max,resolution)
+        x2_vals = np.arange(x2_min,x2_max,resolution)
+
+        xx1,xx2 = np.meshgrid(x1_vals,x2_vals)
+        grid = np.vstack([xx1.ravel(),xx2.ravel()])
+        preds = self.forward(grid)
+        preds = (preds >= 0.5).reshape(xx1.shape)
+
+        for i in range(preds.shape[0]):
+            row = ""
+            for j in range(preds.shape[1]):
+                row += "#" if preds[i,j] else "."
+            print(row)
 
     def layer_stats(self, layer_idx: int) -> Dict[str, float]:
         """Return {mean_W, std_W, mean_grad, std_grad} for one layer."""
-        raise NotImplementedError
+        W = self.params[f"W{layer_idx}"]
+        dW = self.grads[f"dW{layer_idx}"]
+        return {
+            "mean_W": np.mean(W),
+            "std_W":np.std(W),
+            "mean_grad":np.mean(dW),
+            "std_grad":np.std(dW)
+        }
+
+
 
 
 # -----------------------------------------------------------------------------
@@ -277,4 +346,5 @@ if __name__ == "__main__":
     print("Last loss:", losses[-1])
     print("Final output:", nn.forward(X))
     print("Expected:   ", y)
-    print("Gradient check error:", nn.gradient_check(X, y))
+    print("Gradient check:", nn.gradient_check(X, y))
+    nn.plot_decision_boundary(X, y)
